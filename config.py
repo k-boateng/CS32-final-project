@@ -20,5 +20,9 @@ def is_new_user():
     return None
 
 def starting_page():
+
     contents = os.listdir(base_directory/"Friends")
+
+    if not contents:
+        print("No messages yet")
 
