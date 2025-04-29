@@ -15,14 +15,10 @@ def is_new_user():
         new_folders = ["Messages", "Friends", "Config"]
 
         for folder in new_folders:
-            folder_path = base_directory / folder  # Append the folder name to the base directory
+            folder_path = base_directory / folder  # add the folder name to the base directory
             folder_path.mkdir(parents=True, exist_ok=True)
     return None
 
-def starting_page():
 
-    contents = os.listdir(base_directory/"Friends")
 
-    if not contents:
-        print("No messages yet")
 

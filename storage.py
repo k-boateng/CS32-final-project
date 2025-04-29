@@ -1,5 +1,7 @@
 import sqlite3
+import os
 from datetime import datetime
+from pathlib import Path
 
 class Message:
     def __init__(self, text, timestamp=None):
@@ -10,8 +12,15 @@ class Message:
         return f"<Message {self.timestamp}: {self.text}>"
 
 class MessageDatabase:
-    def __init__(self, db_name="chat_messages.db"):
-        self.conn = sqlite3.connect(db_name)
+    def __init__(self, friend_name, base_directory=Path.home() / "messageapp" / "Messages"):
+        # Ensure that the directory exists for the conversation
+        self.friend_name = friend_name
+        self.db_folder = base_directory / friend_name
+        self.db_folder.mkdir(parents=True, exist_ok=True)
+
+        # Set the database file path inside the specific folder for the conversation
+        self.db_name = self.db_folder / f"{friend_name}.db"
+        self.conn = sqlite3.connect(self.db_name)
         self._create_table()
 
     def _create_table(self):
