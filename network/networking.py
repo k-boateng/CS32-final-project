@@ -6,7 +6,7 @@ from chat.chat_window import ChatWindow
 
 peers = {}
 
-def start_discovery_server(on_connect_callback):
+def start_server(on_connect_callback):
     def server():
         s = socket.socket()
         s.bind(("", 5050))

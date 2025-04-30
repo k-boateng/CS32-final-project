@@ -1,6 +1,6 @@
 # gui.py
 import tkinter as tk
-from chat import ChatWindow
+from chat.chat_window import ChatWindow
 from data.friends import get_friends, add_friend
 from data.profiles import get_username, save_username
 from network.networking import connect_to_peer

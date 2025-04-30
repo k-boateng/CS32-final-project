@@ -3,7 +3,7 @@ from tkinter import scrolledtext
 from datetime import datetime
 from data.database import MessageDatabase, Message
 from pathlib import Path
-from network.networking import send_message_to_peer
+
 
 class ChatWindow:
     windows = {}
@@ -35,6 +35,7 @@ class ChatWindow:
             self.display_message(message)
 
     def send_message(self, event=None):
+        from network.networking import send_message_to_peer
         content = self.entry.get().strip()
         if content:
             message = Message(content)
