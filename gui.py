@@ -1,85 +1,55 @@
 import tkinter as tk
-import socket
-from tkinter import scrolledtext
-import threading
-from storage import MessageDatabase
+from tkinter import simpledialog
+from friends import get_friends, add_friend
+from profiles import get_username, set_username
+from networking import listen_for_peers, connect_to_peer
+from chat import ChatBox
+from pathlib import Path
 
-class ChatApp:
-    def __init__(self, master, sock, name, peer_name, db):
-        self.master = master
-        self.sock = sock
-        self.name = name
-        self.peer_name = peer_name
-        self.db = db
+class App:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Message App")
 
-        master.title(f"Chat with {peer_name}")
+        self.friends_frame = tk.Frame(self.root)
+        self.friends_frame.pack(padx=10, pady=10)
 
-        self.chat_area = scrolledtext.ScrolledText(master, state='disabled', width=50, height=20)
-        self.chat_area.pack(padx=10, pady=10)
+        self.bottom_frame = tk.Frame(self.root)
+        self.bottom_frame.pack(padx=10, pady=10)
 
-        self.entry = tk.Entry(master, width=50)
-        self.entry.pack(padx=10, pady=10)
-        self.entry.bind("<Return>", self.send_message)
+        self.profile_btn = tk.Button(self.bottom_frame, text="Profile", command=self.set_profile)
+        self.profile_btn.pack(side='left', padx=5)
 
-        self.send_button = tk.Button(master, text="Send", command=self.send_message)
-        self.send_button.pack()
+        self.connect_btn = tk.Button(self.bottom_frame, text="Connect/Add", command=self.add_friend)
+        self.connect_btn.pack(side='left', padx=5)
 
-        threading.Thread(target=self.receive_messages, daemon=True).start()
+        self.load_friends()
+        listen_for_peers(self.on_peer_connected)
 
-    def receive_messages(self):
-        while True:
-            try:
-                data = self.sock.recv(1024).decode()
-                if not data:
-                    break
-                self.append_message(f"[{self.peer_name}]: {data}", is_friend=True)
-                self.db.save_message(f"[{self.peer_name}]: {data}")
-            except:
-                break
+    def set_profile(self):
+        name = simpledialog.askstring("Profile", "Enter your username")
+        if name:
+            set_username(name)
 
-    def send_message(self, event=None):
-        msg = self.entry.get()
-        if msg:
-            self.sock.sendall(msg.encode())
-            self.append_message(f"[{self.name}]: {msg}", is_friend=False)
-            self.db.save_message(f"[{self.name}]: {msg}")
-            self.entry.delete(0, tk.END)
+    def add_friend(self):
+        ip = simpledialog.askstring("Connect", "Friend IP Address:")
+        port = simpledialog.askstring("Connect", "Friend Port:")
+        if ip and port:
+            connect_to_peer(ip, port, lambda sock: print("Connected to peer"))
 
-    def append_message(self, msg, is_friend):
-        self.chat_area.configure(state='normal')
-        color = 'blue' if is_friend else 'green'
-        self.chat_area.insert(tk.END, msg + "\n", color)
-        self.chat_area.configure(state='disabled')
-        self.chat_area.yview(tk.END)  # auto-scroll down
+    def load_friends(self):
+        for widget in self.friends_frame.winfo_children():
+            widget.destroy()
+        for friend in get_friends():
+            btn = tk.Button(self.friends_frame, text=friend['name'], command=lambda n=friend['name']: ChatBox(self.root, n))
+            btn.pack(pady=2)
 
-        self.chat_area.tag_configure('green', foreground='green')
-        self.chat_area.tag_configure('blue', foreground='blue')
+    def on_peer_connected(self, name, ip, port):
+        self.load_friends()
+        print(f"Connected with {name} at {ip}:{port}")
 
-def start_server_gui(host='localhost', port=5050, name="Server", peer_name="Client"):
-    db = MessageDatabase(friend_name=peer_name)  # Now passing friend name
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((host, port))
-    server.listen(1)
-    print(f"{name}: Waiting for connection on {host}:{port}...")
-    conn, addr = server.accept()
-    print(f"{name}: Connected to {addr}")
+    def run(self):
+        self.root.mainloop()
 
-    root = tk.Tk()
-    app = ChatApp(root, conn, name, peer_name, db)
-    root.mainloop()
-
-    db.close()
-    conn.close()
-
-def start_client_gui(host='localhost', port=5050, name="Client", peer_name="Server"):
-    db = MessageDatabase(friend_name=peer_name)  # Now passing friend name
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((host, port))
-    print(f"{name}: Connected to {host}:{port}")
-
-    root = tk.Tk()
-    app = ChatApp(root, client, name, peer_name, db)
-    root.mainloop()
-
-    db.close()
-    client.close()
+def launch_app():
+    App().run()
