@@ -8,11 +8,12 @@ from pathlib import Path
 class ChatWindow:
     windows = {}
 
-    def __init__(self, friend_name):
+    def __init__(self, friend_name, client):
         if friend_name in ChatWindow.windows:
             ChatWindow.windows[friend_name].window.lift()
             return
         self.friend_name = friend_name
+        self.client = client  # The client passed from the App
         self.window = tk.Toplevel()
         self.window.title(f"Chat with {friend_name}")
         self.window.protocol("WM_DELETE_WINDOW", self.close)
@@ -28,6 +29,7 @@ class ChatWindow:
         self.db = MessageDatabase(str(self.db_path))
         self.load_messages()
 
+        # Store this chat window to allow message reception
         ChatWindow.windows[friend_name] = self
 
     def load_messages(self):
@@ -35,13 +37,15 @@ class ChatWindow:
             self.display_message(message)
 
     def send_message(self, event=None):
-        from network.networking import send_message_to_peer
         content = self.entry.get().strip()
         if content:
             message = Message(content)
             self.db.save_message(message)
             self.display_message(message)
-            send_message_to_peer(self.friend_name, content)
+
+            # Use the client to send the message to the friend
+            self.client.send_message(self.friend_name, content)
+
             self.entry.delete(0, tk.END)
 
     def display_message(self, message):
@@ -56,7 +60,7 @@ class ChatWindow:
 
     @staticmethod
     def receive_message(friend_name, content):
-        win = ChatWindow.windows.get(friend_name) or ChatWindow(friend_name)
+        win = ChatWindow.windows.get(friend_name) or ChatWindow(friend_name, None)
         message = Message(content)
         win.db.save_message(message)
         win.display_message(message)

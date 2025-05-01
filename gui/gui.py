@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import scrolledtext
-from network.networking import connect_to_peer
+from tkinter import messagebox
+from network.client import Client
 from chat.chat_window import ChatWindow
-from data.profiles import get_username
+from data.profiles import get_username, save_username
 from data.friends import get_friends, add_friend
 import threading
 
@@ -11,104 +11,91 @@ class App:
         self.root = root
         self.root.title("Messaging App")
 
-        # Friends List
+        # Initialize & connect client
+        self.client = Client(username=get_username(), message_callback=self.on_message_received)
+        self.client.connect()
+
+        # Friends List UI
         self.friends_frame = tk.Frame(self.root)
         self.friends_frame.pack(pady=10, padx=10, fill='both', expand=True)
 
-        self.friends_label = tk.Label(self.friends_frame, text="Your Friends")
-        self.friends_label.pack()
-
+        tk.Label(self.friends_frame, text="Your Friends").pack()
         self.friends_listbox = tk.Listbox(self.friends_frame)
         self.friends_listbox.pack(padx=10, pady=10, fill='both', expand=True)
-
-        self.refresh_friends_list()
-
         self.friends_listbox.bind("<ButtonRelease-1>", self.on_friend_select)
 
-        # Profile and Connect Button Frame
+        # Buttons
         self.buttons_frame = tk.Frame(self.root)
         self.buttons_frame.pack(fill='x', padx=10, pady=10)
 
-        self.connect_button = tk.Button(self.buttons_frame, text="Add/Connect Friend", command=self.connect_friend)
-        self.connect_button.pack(side=tk.LEFT, padx=5)
+        tk.Button(self.buttons_frame, text="Add/Connect Friend", command=self.connect_friend).pack(side=tk.LEFT, padx=5)
+        tk.Button(self.buttons_frame, text="Profile", command=self.update_profile).pack(side=tk.LEFT, padx=5)
 
-        self.profile_button = tk.Button(self.buttons_frame, text="Profile", command=self.update_profile)
-        self.profile_button.pack(side=tk.LEFT, padx=5)
+        self.refresh_friends_list()
 
     def refresh_friends_list(self):
         self.friends_listbox.delete(0, tk.END)
-        friends = get_friends()
-        for friend in friends:
-            self.friends_listbox.insert(tk.END, friend[0])  # Only show friend's name
+        for friend, *_ in get_friends():
+            self.friends_listbox.insert(tk.END, friend)
 
     def on_friend_select(self, event):
-        selected_friend = self.friends_listbox.get(self.friends_listbox.curselection())
-        self.open_chat_window(selected_friend)
+        sel = self.friends_listbox.curselection()
+        if sel:
+            friend = self.friends_listbox.get(sel)
+            self.open_chat_window(friend)
 
     def open_chat_window(self, friend_name):
-        ChatWindow(friend_name)
+        ChatWindow(friend_name, self.client)
 
     def connect_friend(self):
-        # Prompt to enter IP and port to connect
-        self.connect_window = tk.Toplevel(self.root)
-        self.connect_window.title("Enter Peer Details")
+        win = tk.Toplevel(self.root)
+        win.title("Connect to Friend")
 
-        self.ip_label = tk.Label(self.connect_window, text="Friend's IP Address:")
-        self.ip_label.pack(pady=5)
+        tk.Label(win, text="Friend's Username:").pack(pady=5)
+        entry = tk.Entry(win)
+        entry.pack(pady=5)
+        tk.Button(win, text="Connect", command=lambda: self.attempt_connection(entry.get().strip(), win)).pack(pady=10)
 
-        self.ip_entry = tk.Entry(self.connect_window)
-        self.ip_entry.pack(pady=5)
+    def attempt_connection(self, friend_name, win):
+        win.destroy()
+        if not friend_name:
+            return
 
-        self.port_label = tk.Label(self.connect_window, text="Friend's Port:")
-        self.port_label.pack(pady=5)
+        def on_status(data):
+            if data.get("status") == "online":
+                ip = data.get("ip"); port = data.get("port")
+                add_friend(friend_name, ip, port)
+                self.refresh_friends_list()
+                self.open_chat_window(friend_name)
+                messagebox.showinfo("Connected", f"{friend_name} is online.")
+            else:
+                messagebox.showwarning("Offline", f"{friend_name} is not online.")
 
-        self.port_entry = tk.Entry(self.connect_window)
-        self.port_entry.pack(pady=5)
-
-        self.connect_button = tk.Button(self.connect_window, text="Connect", command=self.attempt_connection)
-        self.connect_button.pack(pady=10)
-
-    def attempt_connection(self):
-        ip = self.ip_entry.get().strip()
-        port = self.port_entry.get().strip()
-
-        if ip and port:
-            threading.Thread(target=self.connect_and_refresh, args=(ip, port), daemon=True).start()
-            self.connect_window.destroy()
-
-    def connect_and_refresh(self, ip, port):
-        # Connect to peer
-        def on_connect(friend_name, ip, port):
-            add_friend(friend_name, ip, port)
-            self.refresh_friends_list()
-            self.open_chat_window(friend_name)
-
-        connect_to_peer(ip, port, on_connect)
+        threading.Thread(target=lambda: self.client.request_status(friend_name, on_status), daemon=True).start()
 
     def update_profile(self):
-        # Profile settings
-        profile_window = tk.Toplevel(self.root)
-        profile_window.title("Update Profile")
+        win = tk.Toplevel(self.root)
+        win.title("Update Profile")
 
-        self.profile_label = tk.Label(profile_window, text="Enter your username:")
-        self.profile_label.pack(pady=10)
+        tk.Label(win, text="Enter your username:").pack(pady=10)
+        entry = tk.Entry(win)
+        entry.insert(0, get_username())
+        entry.pack(pady=10)
+        tk.Button(win, text="Save", command=lambda: self.save_profile(entry.get().strip(), win)).pack(pady=10)
 
-        self.profile_entry = tk.Entry(profile_window)
-        self.profile_entry.insert(0, get_username())
-        self.profile_entry.pack(pady=10)
-
-        self.save_button = tk.Button(profile_window, text="Save", command=self.save_profile)
-        self.save_button.pack(pady=10)
-
-    def save_profile(self):
-        # Save new username
-        new_name = self.profile_entry.get().strip()
+    def save_profile(self, new_name, win):
         if new_name:
-            from data.profiles import save_username
             save_username(new_name)
+            self.client.username = new_name
+        win.destroy()
+
+    def on_message_received(self, msg):
+        # msg: dict with keys type, from, to, content, mode
+        ChatWindow.receive_message(msg["from"], msg["content"])
 
 
 def launch_gui():
     root = tk.Tk()
-    app = App(root)
+    App(root)
     root.mainloop()
+
