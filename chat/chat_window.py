@@ -6,14 +6,15 @@ from pathlib import Path
 
 
 class ChatWindow:
-    windows = {}
+    windows = {}  # Tracks open chat windows
+    message_queue = {}  # Queues messages received before window is ready
 
-    def __init__(self, friend_name, client):
+    def __init__(self, friend_name):
         if friend_name in ChatWindow.windows:
             ChatWindow.windows[friend_name].window.lift()
             return
+
         self.friend_name = friend_name
-        self.client = client  # The client passed from the App
         self.window = tk.Toplevel()
         self.window.title(f"Chat with {friend_name}")
         self.window.protocol("WM_DELETE_WINDOW", self.close)
@@ -29,7 +30,13 @@ class ChatWindow:
         self.db = MessageDatabase(str(self.db_path))
         self.load_messages()
 
-        # Store this chat window to allow message reception
+        # Flush any queued messages
+        if friend_name in ChatWindow.message_queue:
+            for msg in ChatWindow.message_queue[friend_name]:
+                self.db.save_message(msg)
+                self.display_message(msg)
+            del ChatWindow.message_queue[friend_name]
+
         ChatWindow.windows[friend_name] = self
 
     def load_messages(self):
@@ -37,15 +44,13 @@ class ChatWindow:
             self.display_message(message)
 
     def send_message(self, event=None):
+        from network.networking import send_message_to_peer
         content = self.entry.get().strip()
         if content:
             message = Message(content)
             self.db.save_message(message)
             self.display_message(message)
-
-            # Use the client to send the message to the friend
-            self.client.send_message(self.friend_name, content)
-
+            send_message_to_peer(self.friend_name, content)
             self.entry.delete(0, tk.END)
 
     def display_message(self, message):
@@ -60,7 +65,16 @@ class ChatWindow:
 
     @staticmethod
     def receive_message(friend_name, content):
-        win = ChatWindow.windows.get(friend_name) or ChatWindow(friend_name, None)
         message = Message(content)
-        win.db.save_message(message)
-        win.display_message(message)
+        win = ChatWindow.windows.get(friend_name)
+
+        if win and hasattr(win, 'db'):
+            win.db.save_message(message)
+            win.display_message(message)
+        else:
+            if friend_name not in ChatWindow.message_queue:
+                ChatWindow.message_queue[friend_name] = []
+            ChatWindow.message_queue[friend_name].append(message)
+
+            if not win:
+                ChatWindow(friend_name)
