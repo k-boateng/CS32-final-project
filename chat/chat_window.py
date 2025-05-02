@@ -3,18 +3,20 @@ from tkinter import scrolledtext
 from datetime import datetime
 from data.database import MessageDatabase, Message
 from pathlib import Path
+import threading
 
 
 class ChatWindow:
-    windows = {}  # Tracks open chat windows
-    message_queue = {}  # Queues messages received before window is ready
+    windows = {}  # friend_name -> ChatWindow instance
+    message_queue = {}  # friend_name -> list of queued Message
 
-    def __init__(self, friend_name):
+    def __init__(self, friend_name, client):
         if friend_name in ChatWindow.windows:
             ChatWindow.windows[friend_name].window.lift()
             return
 
         self.friend_name = friend_name
+        self.client = client
         self.window = tk.Toplevel()
         self.window.title(f"Chat with {friend_name}")
         self.window.protocol("WM_DELETE_WINDOW", self.close)
@@ -26,31 +28,30 @@ class ChatWindow:
         self.entry.pack(padx=10, pady=(0, 10), fill='x')
         self.entry.bind("<Return>", self.send_message)
 
+        # Setup database
         self.db_path = Path.home() / "messageapp" / "Messages" / f"{friend_name}.db"
-        self.db = MessageDatabase(str(self.db_path))
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db = MessageDatabase(str(self.db_path), check_same_thread=False)
         self.load_messages()
 
-        # Flush any queued messages
-        if friend_name in ChatWindow.message_queue:
-            for msg in ChatWindow.message_queue[friend_name]:
-                self.db.save_message(msg)
-                self.display_message(msg)
-            del ChatWindow.message_queue[friend_name]
-
+        # Register window
         ChatWindow.windows[friend_name] = self
+
+        # Show any queued messages
+        for msg in ChatWindow.message_queue.pop(friend_name, []):
+            self.display_message(msg)
 
     def load_messages(self):
         for message in self.db.get_all_messages():
             self.display_message(message)
 
     def send_message(self, event=None):
-        from network.networking import send_message_to_peer
         content = self.entry.get().strip()
         if content:
             message = Message(content)
             self.db.save_message(message)
             self.display_message(message)
-            send_message_to_peer(self.friend_name, content)
+            self.client.send(self.friend_name, content)
             self.entry.delete(0, tk.END)
 
     def display_message(self, message):
@@ -66,15 +67,11 @@ class ChatWindow:
     @staticmethod
     def receive_message(friend_name, content):
         message = Message(content)
-        win = ChatWindow.windows.get(friend_name)
 
-        if win and hasattr(win, 'db'):
+        if friend_name in ChatWindow.windows:
+            win = ChatWindow.windows[friend_name]
             win.db.save_message(message)
             win.display_message(message)
         else:
-            if friend_name not in ChatWindow.message_queue:
-                ChatWindow.message_queue[friend_name] = []
-            ChatWindow.message_queue[friend_name].append(message)
-
-            if not win:
-                ChatWindow(friend_name)
+            # Queue message until user opens window
+            ChatWindow.message_queue.setdefault(friend_name, []).append(message)
