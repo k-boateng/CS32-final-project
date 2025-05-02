@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from datetime import datetime
 
 class Message:
@@ -11,28 +12,34 @@ class Message:
 
 class MessageDatabase:
     def __init__(self, db_path):
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.lock = threading.Lock()
         self._create_table()
 
     def _create_table(self):
-        with self.conn:
-            self.conn.execute('''
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    text TEXT NOT NULL,
-                    timestamp TEXT NOT NULL
-                )
-            ''')
+        with self.lock:
+            with self.conn:
+                self.conn.execute('''
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        text TEXT NOT NULL,
+                        timestamp TEXT NOT NULL
+                    )
+                ''')
 
     def save_message(self, message):
-        with self.conn:
-            self.conn.execute('INSERT INTO messages (text, timestamp) VALUES (?, ?)',
-                              (message.text, message.timestamp))
+        with self.lock:
+            with self.conn:
+                self.conn.execute(
+                    'INSERT INTO messages (text, timestamp) VALUES (?, ?)',
+                    (message.text, message.timestamp)
+                )
 
     def get_all_messages(self):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT text, timestamp FROM messages ORDER BY id')
-        return [Message(text=row[0], timestamp=row[1]) for row in cursor.fetchall()]
+        with self.lock:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT text, timestamp FROM messages ORDER BY id')
+            return [Message(text=row[0], timestamp=row[1]) for row in cursor.fetchall()]
 
     def close(self):
         self.conn.close()
