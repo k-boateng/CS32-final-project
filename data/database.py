@@ -11,11 +11,11 @@ class Message:
         return f"<Message {self.timestamp}: {self.text}>"
 
 class MessageDatabase:
-    def __init__(self, db_path):
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+    def __init__(self, db_path, check_same_thread=True):
         self.lock = threading.Lock()
+        self.conn = sqlite3.connect(db_path, check_same_thread=check_same_thread)
         self._create_table()
-
+        
     def _create_table(self):
         with self.lock:
             with self.conn:
