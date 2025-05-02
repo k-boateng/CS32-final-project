@@ -56,7 +56,7 @@ class Client:
         except Exception as e:
             print(f"[ERROR] request_status: {e}")
 
-    def send_message(self, to_username, content, mode="normal"):
+    def send(self, to_username, content, mode="normal"):
         """Send a chat message packet via the server."""
         msg = {
             "type": "message",
