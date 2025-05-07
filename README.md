@@ -14,7 +14,7 @@ Instructions to Run.
 7. A message box should open. Type in your messages and hit enter to send
 
 Note:
-The two computers should be on the same network. Also, the scripts should be run on a local IDE because tkinter did not run on the cloud codespaces when we tested it.
+The two computers should be on the same network.You should also allow python.exe through the firewall on you computer. Finally, the scripts should be run on a local IDE because tkinter did not run on the cloud codespaces when we tested it.
 
 
 
