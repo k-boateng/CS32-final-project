@@ -1,4 +1,3 @@
-
 from gui.gui import launch_gui
 from setup import initialize_directories
 

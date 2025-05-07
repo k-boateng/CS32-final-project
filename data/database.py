@@ -12,7 +12,7 @@ class Message:
 
 class MessageDatabase:
     def __init__(self, db_path, check_same_thread=True):
-        self.lock = threading.Lock()
+        self.lock = threading.Lock() #prevents different threads from access the same db file which may cause errors
         self.conn = sqlite3.connect(db_path, check_same_thread=check_same_thread)
         self._create_table()
         
@@ -35,6 +35,7 @@ class MessageDatabase:
                     (message.text, message.timestamp)
                 )
 
+    #loads all messages between you and the friend from the dtabase file
     def get_all_messages(self):
         with self.lock:
             cursor = self.conn.cursor()

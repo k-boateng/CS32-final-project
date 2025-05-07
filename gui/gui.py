@@ -9,13 +9,13 @@ import threading
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Messaging App")
+        self.root.title("Chatty")
 
-        # Initialize & connect client
+        # Initializes & connects client to the server
         self.client = Client(username=get_username(), message_callback=self.on_message_received)
         self.client.connect()
 
-        # Friends List UI
+        # Friends List Section
         self.friends_frame = tk.Frame(self.root)
         self.friends_frame.pack(pady=10, padx=10, fill='both', expand=True)
 
@@ -24,7 +24,7 @@ class App:
         self.friends_listbox.pack(padx=10, pady=10, fill='both', expand=True)
         self.friends_listbox.bind("<ButtonRelease-1>", self.on_friend_select)
 
-        # Buttons
+        # Buttons for adding and changing username
         self.buttons_frame = tk.Frame(self.root)
         self.buttons_frame.pack(fill='x', padx=10, pady=10)
 
@@ -33,20 +33,24 @@ class App:
 
         self.refresh_friends_list()
 
+    #Updates the list section
     def refresh_friends_list(self):
         self.friends_listbox.delete(0, tk.END)
         for friend, *_ in get_friends():
             self.friends_listbox.insert(tk.END, friend)
 
+    #Opens the chat window with saved messages
     def on_friend_select(self, event):
         sel = self.friends_listbox.curselection()
         if sel:
             friend = self.friends_listbox.get(sel)
             self.open_chat_window(friend)
 
+    #Opens the chat window with saved messages
     def open_chat_window(self, friend_name):
         ChatWindow(friend_name, self.client)
 
+    #adding friends dialog box
     def connect_friend(self):
         win = tk.Toplevel(self.root)
         win.title("Connect to Friend")
@@ -62,6 +66,7 @@ class App:
             return
 
         def on_status(data):
+            #Contacts the other client to see if it is online
             if data.get("status") == "online":
                 ip = data.get("ip"); port = data.get("port")
                 add_friend(friend_name, ip, port)
@@ -69,7 +74,8 @@ class App:
                 self.open_chat_window(friend_name)
                 messagebox.showinfo("Connected", f"{friend_name} is online.")
             else:
-                messagebox.showwarning("Offline", f"{friend_name} is not online.")
+                messagebox.showwarning("Offline", f"{friend_name} is not online. No messages will be sent")
+                self.open_chat_window(friend_name)
 
         threading.Thread(target=lambda: self.client.request_status(friend_name, on_status), daemon=True).start()
 
@@ -90,7 +96,6 @@ class App:
         win.destroy()
 
     def on_message_received(self, msg):
-        # msg: dict with keys type, from, to, content, mode
         ChatWindow.receive_message(msg["from"], msg["content"])
 
 

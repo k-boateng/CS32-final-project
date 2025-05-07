@@ -1,9 +1,7 @@
 import tkinter as tk
 from tkinter import scrolledtext
-from datetime import datetime
 from data.database import MessageDatabase, Message
 from pathlib import Path
-import threading
 
 
 class ChatWindow:
