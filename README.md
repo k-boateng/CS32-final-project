@@ -5,7 +5,7 @@ A peer to peer messaging app like whatsapp made by Evelyn Gathara and Kwame Boat
 This app provides a gui that can be used to send messages between two friends on the same network.
 
 Instructions to Run.
-1. Ensure that both computers are on the same address
+1. Ensure that both computers are on the same network
 2. Run the server.py located in the network folder on one computer.
 3. Then run main.py on that same computer
 4. Before you run main.py on the second computer, change the "SERVER IP" in client.py to the ip address of your first compluter(The one currently running server.py)
@@ -14,7 +14,7 @@ Instructions to Run.
 7. A message box should open. Type in your messages and hit enter to send
 
 Note:
-The two computers should be on the same network.You should also allow python.exe through the firewall on you computer. Finally, the scripts should be run on a local IDE because tkinter did not run on the cloud codespaces when we tested it.
+The two computers should be on the same network. You should also allow python.exe through the firewall on you computer. Finally, the scripts should be run on a local IDE because tkinter did not run on the cloud codespaces when we tested it.
 
 
 
