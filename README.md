@@ -20,7 +20,7 @@ The two computers should be on the same network. You should also allow python.ex
 
 External Contributors
 
-We used generative AI to help debug parts of our code, especially the sections of the user interface that weren’t working properly.
+We used generative AI to help debug parts of our code, especially the sections of the user interface that weren’t working properly with the other parts of the project.
 
 We found these sources to be greatly helpful when dealing with multithreading, tkinter, json and databases
 https://realpython.com/intro-to-python-threading/
